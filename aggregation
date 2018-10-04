@@ -1,0 +1,51 @@
+library(readxl)
+
+G_860 <- read_excel("/Users/matttrombley/Dropbox/R/G-860.xlsx", sheet = "Well", col_types = c("date", "date", "text", "numeric", "text", "numeric"))
+
+G_860$time <- substr(G_860$time,12,13)
+
+Grouped_Well <- aggregate(G_860$Corrected, list(G_860$date, G_860$time), mean)
+
+colnames(Grouped_Well) <- c('Date', 'Hour', 'Corrected_Mean')
+
+Ordered_Well <-  Grouped_Well[order(Grouped_Well$Date,Grouped_Well$Hour),]
+
+rownames(Ordered_Well) <- NULL
+
+#Ordered_Well$key <- paste(Ordered_Well$Date, Ordered_Well$hour)
+
+Ordered_Well$key <- substr(Ordered_Well$Date,1,10)
+
+mean(Ordered_Well$Corrected_Mean)
+
+sd(Ordered_Well$Corrected_Mean)
+
+timeset <- seq(ISOdate(2007,10,1,1), ISOdate(2018,6,4,12), "hours")
+
+
+complement <- data.frame("key" = substr(timeset,1,10), "Hour" = substr(timeset,12,13), "constant" = 0)
+
+nrow(complement)
+
+all_hours <- merge(Ordered_Well, complement, by.all=c("key","Hour"), all.x = TRUE, all.y = TRUE )
+
+table(is.na(all_hours$constant))
+
+table(is.na(all_hours$Corrected_Mean))
+
+all_hours <-  all_hours[order(all_hours$Date,all_hours$Hour),]
+
+rownames(all_hours) <- NULL
+
+
+all_hours$constant[is.na(all_hours$Corrected_Mean)] <- 1
+
+table(all_hours$constant)
+all_hours$all_date <- as.POSIXct(paste(all_hours$key," ", substr(all_hours$Hour,1,2),":00", sep = ""), format = "%Y-%m-%d %H:%M")
+
+
+
+library(ggplot2)
+
+ggplot(all_hours, aes(all_date, Corrected_Mean)) + geom_line() + xlab("date") + ylab("Mean")
+
