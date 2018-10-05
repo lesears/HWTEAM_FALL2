@@ -1,0 +1,28 @@
+# loading data
+library(zoo)
+library(imputeTS)
+library(dplyr)
+library(naniar)
+
+
+# modify to fit your directory where the file is located
+your_directory <- "/Users/bxp151/Documents/MSA 2019/021 Time Series II/Well Data/"
+well_df <- read.csv( paste0( your_directory, "G-2147_T_Hourly2.csv" ), 
+                     na.strings='.', stringsAsFactors = FALSE )
+
+# select only column that matter (date and the well water height)
+well_df2 <- select(well_df, date_time2, aggregated)
+
+# Delete daylight savings rows - this is easier to just do manually than try to code
+well_df2 <- well_df2[-c(3627, 12363, 21267, 30003, 38739, 47475, 56211, 64947, 73851, 82587, 91323),]
+
+
+
+# Create Zoo object y in order to be able to run the na.appprox() function for missing values
+y <- read.zoo(well_df2, format = "%d%b%Y:%H:%M:%S", tz = "")
+
+# Interpolate missing values
+z <- na.approx(y)
+
+#  and output to csv 
+write.csv(z, paste0( your_directory, "G-2147_T_Hourly_final.csv") )
