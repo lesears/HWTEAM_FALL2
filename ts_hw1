@@ -1,0 +1,107 @@
+
+options validvarname=any;
+libname wells xlsx 'C:\Users\molly\OneDrive\Documents\_MSA 2018 COURSEWORK\Time Series\G-2147_T.xlsx'; 
+*libname wells xlsx 'Z:\Documents\MSA 2019\021 Time Series II\Well Data\G-2147_T.xlsx'; 
+
+
+/* creating sas dataset in work directory */
+data well;
+    set wells.well;
+run;
+
+/* creating a datetime column in the well dataset with proper SAS date time formats*/
+
+data well_date_time;
+    set well;
+    date_time_orig = dhms( date, 0, 0, time);
+    
+    /* Making all times in EST to remove the hour gap that happens when we spring ahead and fall back */
+    if tz_cd='EST' then 
+            date_time = dhms(date,0,0,time);
+    else date_time = dhms(date,0,0,time);
+    format date_time date_time_orig datetime20.;
+run;
+
+/* filtering so we have the correct start and end date */
+/* also creating an hour variable */
+data well_filtered;
+    set well_date_time;
+    *where date_time >= '08Feb2018:9:15:00'DT;
+    hour = hour(date_time);
+    date_new = datepart(date_time);
+    *might need to add round;
+run;
+
+/* sorting by date and then hour */
+proc sort data = well_filtered out = well_sorted;
+    by date_new hour;
+run;
+
+/* exploring first and last variables of date and hour */
+data well_ag;
+    set well_sorted;
+    by date_new hour;
+
+    if first.hour then
+    do;
+    retain date_time2;
+    format date_time2 datetime20.;
+    date_time2 = date_time;
+    correctedsum = 0;
+    count = 0;
+    end;
+    correctedsum + corrected;
+    count + 1 ;
+    
+    if last.hour; 
+    aggregated = correctedsum / count;
+run;
+
+proc means data=well_ag;
+    var aggregated;
+run;
+
+%let start_date=10Oct2007:00:00:00;
+%let end_date=12Jun2018:22:00:00;
+
+data generated;
+date_time2="&start_date"dt;
+do while (date_time2<="&end_date"dt);
+    output;
+    date_time2=intnx('hour', date_time2, 1, 's');
+end;
+format date_time2 datetime20.;
+run;
+
+*4888 missing values;
+data mergeQ2;
+   merge well_ag(in=x) generated(in=y);      
+   by date_time2;                           
+   if x=0 and y=1;                  
+run;
+ 
+*proc freq data=mergeQ2;
+*    by date_time2;
+*run;
+
+data final2 (keep=aggregated date_time2 Code);
+   merge well_ag(in=x) generated(in=y);      
+   by date_time2;                                            
+run;
+
+
+proc export data=final2 dbms=xlsx
+outfile="Z:\Documents\MSA 2019\021 Time Series II\Well Data\G-2147_T_Hourly.xlsx" replace;
+run;
+
+%ds2csv (
+   data=final2, 
+   runmode=b, 
+   csvfile='Z:\Documents\MSA 2019\021 Time Series II\Well Data\G-2147_T_Hourly2.csv'
+ );
+
+/*molly adding decomp 10/4/18*/
+proc timeseries data=final2 plots=(series decomp);
+	id date_time2 interval=hour;
+	var aggregated;
+run;
