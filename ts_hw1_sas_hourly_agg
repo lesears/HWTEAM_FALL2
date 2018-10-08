@@ -105,3 +105,18 @@ proc timeseries data=final2 plots=(series decomp);
 	id date_time2 interval=hour;
 	var aggregated;
 run;
+
+
+/*modeling work sesh*/
+
+
+proc arima data=final2;
+identify var=aggregated(1,731);
+estimate p=1 method=ML;
+run;
+quit;
+
+data final3;
+set final2;
+where aggregated = .;
+run;
