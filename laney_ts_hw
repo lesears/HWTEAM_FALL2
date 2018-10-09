@@ -1,9 +1,31 @@
-proc arima data=work.wells ;
+proc arima data=work.raw_well ;
 identify var=x(1);
 estimate p=6 q=6 method=ML;
-forecast lead = 168 out=predict;
+forecast lead = 168 out = predict ;
 run;
 quit;
+data predict2;
+set predict;
+MAPE = ((abs((x - forecast)/x))/168);
+MAPE_value = sum(MAPE);
+run;
+
+%let obswant=168;
+data xvar;
+set work.predict nobs=obscount;
+if _n_ gt (obscount-&obswant.);
+run;
+
+%let obswant=168;
+data xvar2;
+set work.raw_Well nobs=obscount;
+if _n_ gt (obscount-&obswant.);
+run;
+
+data new;
+set xvar;
+set xvar2;
+run;
 
 Proc Sql;
     Create Table Work.mape as
@@ -11,10 +33,11 @@ Proc Sql;
             x,
             forecast,
             ((abs((x - forecast)/x))/168) as MAPE
-        from work.Predict;
+        from work.new;
  Quit;
+
 
 proc sql;
 create table work.mape_value as
-select (sum(MAPE)*100) as total_mape from work.MAPE;
+select (sum(MAPE)*100) as total_mape from work.mape;
 quit;
