@@ -10,11 +10,11 @@ Proc Sql;
         select distinct
             x,
             forecast,
-            avg(abs((x - forecast)/x)) as MAPE
+            ((abs((x - forecast)/x))/168) as MAPE
         from work.Predict;
  Quit;
 
 proc sql;
 create table work.mape_value as
-select avg(MAPE) as total_mape from work.MAPE;
+select (sum(MAPE)*100) as total_mape from work.MAPE;
 quit;
