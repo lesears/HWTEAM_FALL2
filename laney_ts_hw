@@ -4,11 +4,6 @@ estimate p=6 q=6 method=ML;
 forecast lead = 168 out = predict ;
 run;
 quit;
-data predict2;
-set predict;
-MAPE = ((abs((x - forecast)/x))/168);
-MAPE_value = sum(MAPE);
-run;
 
 %let obswant=168;
 data xvar;
