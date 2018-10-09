@@ -1,0 +1,20 @@
+proc arima data=work.wells ;
+identify var=x(1);
+estimate p=6 q=6 method=ML;
+forecast lead = 168 out=predict;
+run;
+quit;
+
+Proc Sql;
+    Create Table Work.mape as
+        select distinct
+            x,
+            forecast,
+            avg(abs((x - forecast)/x)) as MAPE
+        from work.Predict;
+ Quit;
+
+proc sql;
+create table work.mape_value as
+select avg(MAPE) as total_mape from work.MAPE;
+quit;
