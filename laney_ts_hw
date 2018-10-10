@@ -2,7 +2,7 @@
 proc arima data=work.raw_well ;
 identify var=x(1);
 estimate p=6 q=6 method=ML;
-forecast lead = 168 out = predict ;
+forecast back=168 lead = 168 out = predict ;
 run;
 quit;
 
