@@ -102,6 +102,7 @@ review_words.head(20)
 #install textblob for stemming, sentiment analysis, classification
 #TF-IDF (term frequency-inverse document frequency) to find meaningful words
 #install Textatistic for Flesch Kincaid readability?
+words = raw['REVIEW']
 import string
 import nltk
 nltk.download('stopwords')
