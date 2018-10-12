@@ -102,6 +102,24 @@ review_words.head(20)
 #install textblob for stemming, sentiment analysis, classification
 #TF-IDF (term frequency-inverse document frequency) to find meaningful words
 #install Textatistic for Flesch Kincaid readability?
+import string
+import nltk
+nltk.download('stopwords')
+def text_process(text):
+    '''
+    Takes in a string of text, then performs the following:
+    1. Remove all punctuation
+    2. Remove all stopwords
+    3. Return the cleaned text as a list of words
+    '''
+    nopunc = [char for char in text if char not in string.punctuation]
+    nopunc = ''.join(nopunc)
+    return [word for word in nopunc.split() if word.lower() not in stopwords.words('english')]
+
+
+sample_text = "Hey there! This is a sample review, which happens to contain punctuations."
+new = text_process(sample_text)
+new
 
 # Porter stem remaining terms
 import nltk
@@ -110,12 +128,7 @@ import re
 porter = nltk.stem.porter.PorterStemmer()
 #raw_wrds =  pd.Series(raw_wrds).values
 #raw_wrds = np.array(raw_wrds).tolist()
-words= raw['REVIEW']
-wd = words.values
-wd = str(words.values)
-wds = wd.split()
 
- stem_words = [[porter.stem(word) for word in sentence.split(" ")] for sentence in wds]
 
 #TF-IDF
  #  Convert term vectors into gensim dictionary
