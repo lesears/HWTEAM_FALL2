@@ -129,6 +129,16 @@ import re
 porter = nltk.stem.porter.PorterStemmer()
 #raw_wrds =  pd.Series(raw_wrds).values
 #raw_wrds = np.array(raw_wrds).tolist()
+porter = nltk.stem.porter.PorterStemmer()
+
+for i in range( 0, len( new ) ):
+    for j in range( 0, len( new[ i ] ) ):
+        new[ i ][ j ] = porter.stem( new[ i ][ j ] )
+
+# Print term vectors with stop words removed
+
+for vec in new:
+    print vec
 
 
 #TF-IDF
