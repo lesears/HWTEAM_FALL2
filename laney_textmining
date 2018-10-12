@@ -1,0 +1,162 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct 11 12:24:39 2018
+
+@author: Laney
+"""
+
+
+#import data
+#save as dataframe called raw
+import os
+os.chdir('C:\\Users\\Laney\\Documents\\Data')
+import pandas as pd
+from matplotlib import pyplot as plt
+pd.options.mode.chained_assignment = None
+from IPython.display import HTML
+import numpy as np
+import seaborn as sns
+import scipy as sp
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn import metrics
+from nltk.stem.snowball import SnowballStemmer
+plt.style.use('fivethirtyeight')
+%matplotlib inline
+plt.rcParams['figure.figsize'] = (8, 6)
+plt.rcParams['font.size'] = 14
+
+raw = pd.read_csv('Womens Clothing E-Commerce Reviews.csv')
+ 
+ 
+raw.head()
+
+#Data Cleaning
+#Drop and rename variables
+
+raw = raw.drop([
+'Unnamed: 0'], axis=1)
+
+raw.rename(columns={
+    'Clothing ID': 'ID',
+    'Age': 'AGE',
+    'Title': 'TITLE',
+    'Review Text': 'REVIEW',
+    'Rating': 'RATING',
+    'Recommended IND': 'RECOMMENDED',
+    'Positive Feedback Count': 'POS_FEEDBACK',
+    'Division Name': 'DIVISION',
+    'Department Name': 'DEPARTMENT',
+    'Class Name': 'CLASS',}, inplace=True)
+#identify missing values - if REVIEW is blank then delete observation, otherwise fill/ignore
+
+print(raw.isnull().sum())
+
+
+raw.CLASS.fillna(value='Unknown', inplace=True)
+raw.DIVISION.fillna(value='Unknown', inplace=True)
+raw.DEPARTMENT.fillna(value='Unknown', inplace=True)
+raw.TITLE.fillna(value='Blank', inplace=True)
+
+raw = raw.dropna()
+
+raw.info()
+
+#creating Age Bucket
+
+custom_bucket_array = np.linspace(10, 90, 10, endpoint=False)
+custom_bucket_array
+
+np.array([10., 18., 26., 34., 42., 50., 58., 66., 74., 82.])
+
+raw['AGE_BUCKET'] = pd.cut(raw['AGE'], custom_bucket_array)
+raw.head()
+
+#use code below to filter values as needed (class = dresses, age bracket, etc)
+
+#raw = raw[(raw.CLASS == 'Dresses')
+#            |(raw.RATING == 1)
+#            |(raw.POS_FEEDBACK == 0)
+#           ]
+#create word frequencies table
+#exclude stop words, ngram opens up to multi-word phrases (min, max), max features tells how many top words/phrases we want to see, lowercase
+vect = CountVectorizer(stop_words='english'               
+        , max_features = 20
+        ,ngram_range=(1, 5)
+        , lowercase =False
+                      )
+ 
+raw_review = vect.fit_transform(raw['REVIEW'].values.astype('U'))
+
+ 
+ 
+#print(vect.get_feature_names()[-50:])
+#vect.vocabulary_
+
+review_words = pd.DataFrame(raw_review.toarray(), columns=vect.get_feature_names())
+ 
+review_words.head(20)
+
+
+#next steps
+#install textblob for stemming, sentiment analysis, classification
+#TF-IDF (term frequency-inverse document frequency) to find meaningful words
+#install Textatistic for Flesch Kincaid readability?
+
+# Porter stem remaining terms
+import nltk
+import string
+import re
+porter = nltk.stem.porter.PorterStemmer()
+#raw_wrds =  pd.Series(raw_wrds).values
+#raw_wrds = np.array(raw_wrds).tolist()
+words= raw['REVIEW']
+wd = words.values
+wd = str(words.values)
+wds = wd.split()
+
+ stem_words = [[porter.stem(word) for word in sentence.split(" ")] for sentence in wds]
+
+#TF-IDF
+ #  Convert term vectors into gensim dictionary
+pip install gensim
+import Gensim
+
+dict = gensim.corpora.Dictionary( stem_words)
+
+corp = [ ]
+for i in range( 0, len( stem_words ) ):
+    corp.append( dict.doc2bow( stem_words[ i ] ) )
+
+#  Create TFIDF vectors based on term vectors bag-of-word corpora
+
+tfidf_model = gensim.models.TfidfModel( corp )
+
+tfidf = [ ]
+for i in range( 0, len( corp ) ):
+    tfidf.append( tfidf_model[ corp[ i ] ] )
+
+#  Create pairwise document similarity index
+
+n = len( dict )
+index = gensim.similarities.SparseMatrixSimilarity( tfidf_model[ corp ], num_features = n )
+
+#  Print TFIDF vectors and pairwise similarity per document
+
+for i in range( 0, len( tfidf ) ):
+    s = 'Doc ' + str( i + 1 ) + ' TFIDF:'
+
+    for j in range( 0, len( tfidf[ i ] ) ):
+        s = s + ' (' + dict.get( tfidf[ i ][ j ][ 0 ] ) + ','
+        s = s + ( '%.3f' % tfidf[ i ][ j ][ 1 ] ) + ')'
+
+    print(s)
+
+for i in range( 0, len( corp ) ):
+    print( 'Doc', ( i + 1 ), 'sim: [ '),
+
+    sim = index[ tfidf_model[ corp[ i ] ] ]
+    for j in range( 0, len( sim ) ):
+        print( '%.3f ' % sim[ j ]),
+
+    print (']')
