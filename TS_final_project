@@ -1,0 +1,141 @@
+/*TIME SERIES FINAL PROJECT*/
+/*IMPORT THREE CSV'S NAMED WELL, TIDE, AND RAIN*/
+/* Visualize the data!!!!  */
+
+/*combined into one dataset with 3 variables: well ,tide, rain*/
+proc Sql;
+create table final as
+select a.date_time,a.corrected as well,b.corrected as tide
+from work.well as a left join work.tide as b 
+on a.date_time = b.date_time;
+/*work.tide as b inner join work.rain as c*/
+/*on b.date_time = c.date_time;*/
+quit;
+proc sql;
+create table combo as
+select a.date_time,a.well, a.tide, b.corrected as rain
+from work.final as a left join work.rain as b 
+on a.date_time = b.date_time;
+quit;
+
+/*visualize*/
+data well_f;
+set work.combo;
+time=_n_;
+run;
+proc sgplot data=well_f ;
+series x=time y=well;
+series x=time y=tide;
+series x=time y=rain;
+run;
+quit;
+
+/* Step 1: Need to see if residuals are stationary */
+proc arima data=well_f;
+identify var=well crosscorr=(tide rain);
+estimate input=(tide rain) p=2 method=ML;
+forecast out=well_out;
+run;
+quit;
+
+
+proc arima data=well_out;
+identify var=residual stationarity=(adf=2);
+run;
+quit;
+
+/*All looks good, let's focus on which predictors are important?  */
+proc arima data=well_f;
+identify var=well crosscorr=(tide rain);
+estimate input=(tide rain) p=2 method=ML;
+*estimate input=(construction interest) p=2 q=(12) method=ML;
+run;
+quit;
+/*tide is sig at 0.0034, rain doesn't look significant at 0.3408, remove it*/
+
+
+
+/* Show predicted versus actual..how are we doing */
+
+proc arima data=well_f;
+identify var=well(1) crosscorr=(tide);
+estimate input=(tide) p=6 q=(6) method=ML;
+forecast out=well_out2;
+run;
+quit;
+
+data well_forc;
+set well_out2;
+time=_n_;
+run;
+
+proc sgplot data=well_forc;
+series x=time y=well;
+series x=time y=forecast;
+refline 70/axis=x lineattrs=(color=green);
+run;
+quit;
+
+
+/* So what if we need to forecast beyond the data?  */
+
+/*Need to build ARIMA model for each predictor variable  */
+/* Unless given predicted values  */
+proc arima data=well_f plot(unpack)=all;
+	identify var=tide nlag=12 stationarity=(adf=2 dlag=12) outcov=Corr;
+	estimate method=ML;
+run;
+quit;
+
+/*reject ADF test of seasonality 12--> no need to difference*/
+/*trying to fit tide data--UNSUCCESSFUL **TRY TO FIT THIS DATA** */
+
+data tide_season;
+set tide;
+pi=constant("pi");
+s1=sin(2*pi*1*_n_/6);
+c1=cos(2*pi*1*_n_/6);
+s2=sin(2*pi*2*_n_/6);
+c2=cos(2*pi*2*_n_/6);
+s3=sin(2*pi*3*_n_/6);
+c3=cos(2*pi*3*_n_/6);
+s4=sin(2*pi*4*_n_/6);
+c4=cos(2*pi*4*_n_/6);
+run;
+
+proc arima data=tide_season plot=all;
+identify var=corrected crosscorr=(s1 c1 s2 c2 s3 c3 s4 c4);
+estimate p=12 input=(s1 c1 s2 c2 s3 c3 s4 c4);
+/*forecast back=12 lead=12;*/
+run;
+quit;
+
+proc arima data=well_f;
+identify var=tide(1) nlag=36 ;
+estimate p=6 q =(6)  method=ML;
+/*forecast lead=24 out=tide_out;*/
+run;
+quit;
+
+
+/* Now get the last 24 observations and put them together in a data set and finally concatenate with original data*/
+data tide_forc;
+set tide_out (rename=(forecast=tide2));
+if _n_ > 82;
+run;
+
+data newfor;
+merge forec1 (keep=tide2);
+run;
+
+data newwell;
+set well2 newfor(rename=(tide2=tide));
+run;
+
+/* forecast :)  */
+proc arima data=newwell;
+identify var=well(1) crosscorr=(tide);
+estimate input=(tide) p=6 q=(6) method=ML;
+forecast lead=24 out=well3;
+run;
+quit;
