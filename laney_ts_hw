@@ -123,9 +123,10 @@ quit;
 
 
 /* Now get the last 24 observations and put them together in a data set and finally concatenate with original data*/
+%let obswant=168;
 data tide_forc;
 set tide_out (rename=(forecast=tide2));
-if _n_ > 168;
+if _n_ >  (obscount-&obswant.);
 run;
 
 data newfor;
