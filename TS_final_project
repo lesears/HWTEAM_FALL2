@@ -1,7 +1,6 @@
 /*TIME SERIES FINAL PROJECT*/
 /*IMPORT THREE CSV'S NAMED WELL, TIDE, AND RAIN*/
 /* Visualize the data!!!!  */
-####################################################DYNAMIC#####################################################################3
 /*combined into one dataset with 3 variables: well ,tide, rain*/
 proc Sql;
 create table final as
@@ -52,8 +51,12 @@ well1=lag1(well);
 well2=lag2(well);
 run;
 
+data well_train;
+set well_f;
+if _n_>3000;
+run;
 /* Step 1: Need to see if residuals are stationary */
-proc arima data=well_f;
+proc arima data=well_train;
 identify var=well crosscorr=(tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9);
 estimate input=(tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9) p=2 method=ML;
 forecast out=well_out;
@@ -65,23 +68,25 @@ proc arima data=well_out;
 identify var=residual stationarity=(adf=2);
 run;
 quit;
+/*if you need to log or take a difference of variables you do this first*/
+
 
 /* Here is the AICC one */
-proc glmselect data=well_f;
+proc glmselect data=well_train;
 model well=well1 well2 tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9/selection=backward select=aicc;
 run;
 quit;
 /* Here is the AIC one */
-proc glmselect data=well_f;
+proc glmselect data=well_train;
 model well=well1 well2 tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9/selection=backward select=aic;
 run;
 quit;
 
 /* Try a number of different models */
 ods output FitStatistics=Fit1;
-proc arima data=combo;
-identify var=well crosscorr=(tide rain);
-estimate input=((4,6) construction (1,5,6,8) interest) p=2 method=ML;
+proc arima data=well_train;
+identify var=well(1) crosscorr=(tide rain) nlag=100;
+estimate input=((5) tide (1,3,4,5,6,7,8,9) rain) p=6 q=24 method=ML;
 run;
 quit;
 
@@ -97,158 +102,47 @@ run;
 data fitall;
 set fitall temp;
 run;
+/*more tries*/
+ods output FitStatistics=Fit1;
+proc arima data=well_train;
+identify var=well(1) crosscorr=(tide rain) nlag=100;
+estimate input=((5) tide 12 $/(1) rain) p=6 q=24 method=ML;
+run;
+quit;
+
+data fitstats;
+set fit1 (keep=label1 nvalue1);
+if label1 = 'AIC' or label1='SBC';
+run;
+
+proc transpose data=fitstats out=fitstats2;
+id label1;
+run;
+
+data fitall;
+set fitall temp;
+run;
+/*this one is better^*/
 
 /*  look at a few models.... */
-proc arima data=combo;
-identify var=well crosscorr=(tide rain);
-estimate input=((4,6) tide (1,5,6,8) rain) p=1 method=ML;
-forecast out=model1 back=12 lead=12;
+proc arima data=well_train;
+identify var=well(1) crosscorr=(tide rain) nlag=100;
+estimate input=((5) tide 12 $/(1) rain) p=6 q=24 method=ML;
+forecast out=model1 back=168 lead = 168;
 run;
 quit;
-proc arima data=well_f;
-identify var=well crosscorr=(tide rain);
-estimate input=((1,2) tide (3,4,5,6,7,8) rain) p=1 method=ML;
-forecast out=model2 back=12 lead=12;
-run;
-quit;
+
 data test;
-merge model1 (rename=(residual=mod1)) model2 (rename=(residual=mod2));
-if _n_>70;
+merge model1 (rename=(residual=mod1));
+if _n_>3000;
 run;
 
 data test;
 set test;
 absmod1=abs(mod1);
-absmod2=abs(mod2);
-mapemod1=absmod1/abs(hstarts);
-mapemod2=absmod2/abs(hstarts);
+mapemod1=absmod1/abs(well);
 run;
 
 proc means data=test;
-var absmod1 absmod2 mapemod1 mapemod2;
+var absmod1 mapemod1;
 run;
-
-
-
-
-#######################################NON DYNAMIC###############################################################################3
-/*All looks good, let's focus on which predictors are important?  */
-proc arima data=well_f;
-identify var=well crosscorr=(tide rain);
-estimate input=(tide rain) p=2 method=ML;
-*estimate input=(construction interest) p=2 q=(12) method=ML;
-run;
-quit;
-/*tide and rain sig.*/
-
-
-
-/* Show predicted versus actual..how are we doing */
-
-proc arima data=well_f;
-identify var=well crosscorr=(tide rain);
-estimate input=(tide rain) p=2 q = (12) method=ML;
-forecast out=well_out2;
-run;
-quit;
-
-data well_forc;
-set well_out2;
-time=_n_;
-run;
-
-proc sgplot data=well_forc;
-series x=time y=well;
-series x=time y=forecast;
-refline 70/axis=x lineattrs=(color=green);
-run;
-quit;
-
-
-/* So what if we need to forecast beyond the data?  */
-
-/*Need to build ARIMA model for each predictor variable  */
-/* Unless given predicted values  */
-proc arima data=well_f plot(unpack)=all;
-	identify var=tide nlag=12 stationarity=(adf=2 dlag=12) outcov=Corr;
-	estimate method=ML;
-run;
-quit;
-proc arima data=well_f plot(unpack)=all;
-	identify var=rain nlag=12 stationarity=(adf=2 dlag=12) outcov=Corr;
-	estimate method=ML;
-run;
-quit;
-
-/*reject ADF test of seasonality 12--> no need to difference*/
-/*trying to fit tide data--UNSUCCESSFUL **TRY TO FIT THIS DATA** */
-
-data tide_season;
-set tide;
-pi=constant("pi");
-s1=sin(2*pi*1*_n_/6);
-c1=cos(2*pi*1*_n_/6);
-s2=sin(2*pi*2*_n_/6);
-c2=cos(2*pi*2*_n_/6);
-s3=sin(2*pi*3*_n_/6);
-c3=cos(2*pi*3*_n_/6);
-s4=sin(2*pi*4*_n_/6);
-c4=cos(2*pi*4*_n_/6);
-run;
-
-proc arima data=tide_season plot=all;
-identify var=corrected crosscorr=(s1 c1 s2 c2 s3 c3 s4 c4);
-estimate p=12 input=(s1 c1 s2 c2 s3 c3 s4 c4);
-/*forecast back=12 lead=12;*/
-run;
-quit;
-/* without trig*/
-proc arima data=well_f;
-identify var=tide(1) nlag=36 ;
-estimate p=6 q =(6)  method=ML;
-/*forecast lead=24 out=tide_out;*/
-run;
-quit;
-
-/*rain-->model with trig*/
-proc arima data=rain plot=all;
-identify var=corrected crosscorr=(s1 c1 s2 c2 s3 c3 s4 c4);
-estimate p=12 input=(s1 c1 s2 c2 s3 c3 s4 c4);
-/*forecast back=12 lead=12 out = rain_out;*/
-run;
-quit;
-
-/*rain-->model without trig*/
-proc arima data=well_f;
-identify var=tide(1) nlag=36 ;
-estimate p=6 q =(6)  method=ML;
-/*forecast lead=24 out=rain_out;*/
-run;
-quit;
-
-/* Now get the last 24 observations and put them together in a data set and finally concatenate with original data*/
-data tide_forc;
-set tide_out (rename=(forecast=tide2));
-if _n_ > 82;
-run;
-
-data rain_forc;
-set rain_out (rename=(forecast=rain2));
-if _n_ > 82;
-run;
-
-data newfor;
-merge forec1 (keep=tide2) rain_forc(keep=rain2);
-run;
-
-data newwell;
-set well2 newfor(rename=(tide2=tide rain2=rain));
-run;
-
-/* forecast :)  */
-proc arima data=newwell;
-identify var=well crosscorr=(tide rain);
-estimate input=(tide rain) p=1 q=(12) method=ML;
-forecast lead=24 out=well3;
-run;
-quit;
