@@ -105,7 +105,7 @@ run;
 /*more tries*/
 ods output FitStatistics=Fit1;
 proc arima data=well_train;
-identify var=well(1) crosscorr=(tide rain) nlag=100;
+identify var=well(3) crosscorr=(tide rain) nlag=100;
 estimate input=((5) tide 12 $/(1) rain) p=6 q=24 method=ML;
 run;
 quit;
