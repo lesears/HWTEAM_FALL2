@@ -51,15 +51,15 @@ estimate input=(tide rain) p=2 method=ML;
 *estimate input=(construction interest) p=2 q=(12) method=ML;
 run;
 quit;
-/*tide is sig at 0.0034, rain doesn't look significant at 0.3408, remove it*/
+/*tide and rain sig.*/
 
 
 
 /* Show predicted versus actual..how are we doing */
 
 proc arima data=well_f;
-identify var=well(1) crosscorr=(tide);
-estimate input=(tide) p=6 q=(6) method=ML;
+identify var=well crosscorr=(tide rain);
+estimate input=(tide rain) p=2 q = (12) method=ML;
 forecast out=well_out2;
 run;
 quit;
@@ -86,6 +86,11 @@ proc arima data=well_f plot(unpack)=all;
 	estimate method=ML;
 run;
 quit;
+proc arima data=well_f plot(unpack)=all;
+	identify var=rain nlag=12 stationarity=(adf=2 dlag=12) outcov=Corr;
+	estimate method=ML;
+run;
+quit;
 
 /*reject ADF test of seasonality 12--> no need to difference*/
 /*trying to fit tide data--UNSUCCESSFUL **TRY TO FIT THIS DATA** */
@@ -109,7 +114,7 @@ estimate p=12 input=(s1 c1 s2 c2 s3 c3 s4 c4);
 /*forecast back=12 lead=12;*/
 run;
 quit;
-
+/* without trig*/
 proc arima data=well_f;
 identify var=tide(1) nlag=36 ;
 estimate p=6 q =(6)  method=ML;
@@ -117,6 +122,21 @@ estimate p=6 q =(6)  method=ML;
 run;
 quit;
 
+/*rain-->model with trig*/
+proc arima data=rain plot=all;
+identify var=corrected crosscorr=(s1 c1 s2 c2 s3 c3 s4 c4);
+estimate p=12 input=(s1 c1 s2 c2 s3 c3 s4 c4);
+/*forecast back=12 lead=12 out = rain_out;*/
+run;
+quit;
+
+/*rain-->model without trig*/
+proc arima data=well_f;
+identify var=tide(1) nlag=36 ;
+estimate p=6 q =(6)  method=ML;
+/*forecast lead=24 out=rain_out;*/
+run;
+quit;
 
 /* Now get the last 24 observations and put them together in a data set and finally concatenate with original data*/
 data tide_forc;
@@ -124,18 +144,23 @@ set tide_out (rename=(forecast=tide2));
 if _n_ > 82;
 run;
 
+data rain_forc;
+set rain_out (rename=(forecast=rain2));
+if _n_ > 82;
+run;
+
 data newfor;
-merge forec1 (keep=tide2);
+merge forec1 (keep=tide2) rain_forc(keep=rain2);
 run;
 
 data newwell;
-set well2 newfor(rename=(tide2=tide));
+set well2 newfor(rename=(tide2=tide rain2=rain));
 run;
 
 /* forecast :)  */
 proc arima data=newwell;
-identify var=well(1) crosscorr=(tide);
-estimate input=(tide) p=6 q=(6) method=ML;
+identify var=well crosscorr=(tide rain);
+estimate input=(tide rain) p=1 q=(12) method=ML;
 forecast lead=24 out=well3;
 run;
 quit;
