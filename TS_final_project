@@ -126,7 +126,7 @@ run;
 
 /*  look at a few models.... */
 proc arima data=well_train;
-identify var=well(1) crosscorr=(tide rain) nlag=100;
+identify var=well(3) crosscorr=(tide rain) nlag=100;
 estimate input=((5) tide 12 $/(1) rain) p=6 q=24 method=ML;
 forecast out=model1 back=168 lead = 168;
 run;
