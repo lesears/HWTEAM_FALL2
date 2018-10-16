@@ -1,7 +1,7 @@
 /*TIME SERIES FINAL PROJECT*/
 /*IMPORT THREE CSV'S NAMED WELL, TIDE, AND RAIN*/
 /* Visualize the data!!!!  */
-
+####################################################DYNAMIC#####################################################################3
 /*combined into one dataset with 3 variables: well ,tide, rain*/
 proc Sql;
 create table final as
@@ -30,10 +30,32 @@ series x=time y=rain;
 run;
 quit;
 
+/* Creating lag variables */
+data well_f;
+set well_f;
+tide1=lag1(tide);
+tide2=lag2(tide);
+tide3=lag3(tide);
+tide4=lag4(tide);
+tide5=lag5(tide);
+tide6=lag6(tide);
+rain1=lag1(rain);
+rain2=lag2(rain);
+rain3=lag3(rain);
+rain4=lag4(rain);
+rain5=lag5(rain);
+rain6=lag6(rain);
+rain7=lag7(rain);
+rain8=lag8(rain);
+rain9=lag9(rain);
+well1=lag1(well);
+well2=lag2(well);
+run;
+
 /* Step 1: Need to see if residuals are stationary */
 proc arima data=well_f;
-identify var=well crosscorr=(tide rain);
-estimate input=(tide rain) p=2 method=ML;
+identify var=well crosscorr=(tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9);
+estimate input=(tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9) p=2 method=ML;
 forecast out=well_out;
 run;
 quit;
@@ -44,6 +66,72 @@ identify var=residual stationarity=(adf=2);
 run;
 quit;
 
+/* Here is the AICC one */
+proc glmselect data=well_f;
+model well=well1 well2 tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9/selection=backward select=aicc;
+run;
+quit;
+/* Here is the AIC one */
+proc glmselect data=well_f;
+model well=well1 well2 tide tide1 tide2 tide3 tide4 tide5 tide6 rain rain1 rain2 rain3 rain4 rain5 rain6 rain7 rain8 rain9/selection=backward select=aic;
+run;
+quit;
+
+/* Try a number of different models */
+ods output FitStatistics=Fit1;
+proc arima data=combo;
+identify var=well crosscorr=(tide rain);
+estimate input=((4,6) construction (1,5,6,8) interest) p=2 method=ML;
+run;
+quit;
+
+data fitstats;
+set fit1 (keep=label1 nvalue1);
+if label1 = 'AIC' or label1='SBC';
+run;
+
+proc transpose data=fitstats out=fitstats2;
+id label1;
+run;
+
+data fitall;
+set fitall temp;
+run;
+
+/*  look at a few models.... */
+proc arima data=combo;
+identify var=well crosscorr=(tide rain);
+estimate input=((4,6) tide (1,5,6,8) rain) p=1 method=ML;
+forecast out=model1 back=12 lead=12;
+run;
+quit;
+proc arima data=well_f;
+identify var=well crosscorr=(tide rain);
+estimate input=((1,2) tide (3,4,5,6,7,8) rain) p=1 method=ML;
+forecast out=model2 back=12 lead=12;
+run;
+quit;
+data test;
+merge model1 (rename=(residual=mod1)) model2 (rename=(residual=mod2));
+if _n_>70;
+run;
+
+data test;
+set test;
+absmod1=abs(mod1);
+absmod2=abs(mod2);
+mapemod1=absmod1/abs(hstarts);
+mapemod2=absmod2/abs(hstarts);
+run;
+
+proc means data=test;
+var absmod1 absmod2 mapemod1 mapemod2;
+run;
+
+
+
+
+#######################################NON DYNAMIC###############################################################################3
 /*All looks good, let's focus on which predictors are important?  */
 proc arima data=well_f;
 identify var=well crosscorr=(tide rain);
