@@ -105,7 +105,7 @@ quit;
 
 /*This is the model I could got */
 ods output FitStatistics=Fit1;
-proc arima data=well_train;
+proc arima data=well_f;
 identify var=well(1) crosscorr=(tide rain) nlag=100;
 estimate input=(6 $/(3) rain (5) tide) p=6 q=24 method=ML;
 forecast out=model1 back=168 lead = 168;
@@ -134,7 +134,7 @@ run;
 
 data test;
 merge model1 (rename=(residual=mod1));
-if _n_>3000;
+if _n_>9;
 run;
 
 data test;
@@ -146,3 +146,43 @@ run;
 proc means data=test;
 var absmod1 mapemod1;
 run;
+
+data New1;
+set Well_f (keep=date_time);
+run;
+
+data New;
+merge New1 Model1;
+run;
+
+proc sgplot data=New;
+  series X=date_time Y= well;
+  series X=date_time Y=FORECAST;
+  YAXIS LABEL = 'Well Depth(In)';
+  XAXIS LABEL = 'Time(Day)';
+  REFLINE 0 / TRANSPARENCY = 0.5;
+  title"Actual Vs Predicted for Well G2147";
+run;
+
+proc sgplot data=New2;
+  series X=Time Y= Well;
+  series X=Time Y=Forecast;
+  YAXIS LABEL = 'Well Height';
+  XAXIS LABEL = 'Time';
+  REFLINE 0 / TRANSPARENCY = 0.5;
+  title"Actual Vs Predicted";
+
+  proc sgplot data=final;
+  series X=date Y=residual /
+  YAXIS LABEL = 'Residuals';
+  XAXIS LABEL = 'Year';
+  title"Stationary Time Series of Residuals";
+run;
+run;
+
+
+%ds2csv (
+   data=New, 
+   runmode=b, 
+   csvfile='Z:\Documents\MSA 2019\024 Visualization\outdir\hw4.csv'
+ );
