@@ -1,18 +1,18 @@
 libname data 'Z:\Documents\MSA 2019\024 Visualization\visuals';
 
-proc import datafile = 'Z:\Documents\MSA 2019\024 Visualization\visuals\G-2147_T-well.csv'
+proc import datafile = 'Z:\Documents\MSA 2019\024 Visualization\outdir\G-2147_T-well.csv'
  out = work.well
  dbms = CSV
  ;
 run;
 
-proc import datafile = 'Z:\Documents\MSA 2019\024 Visualization\visuals\G-2147_T-tide.csv'
+proc import datafile = 'Z:\Documents\MSA 2019\024 Visualization\outdir\G-2147_T-tide.csv'
  out = work.tide
  dbms = CSV
  ;
 run;
 
-proc import datafile = 'Z:\Documents\MSA 2019\024 Visualization\visuals\G-2147_T-rain.csv'
+proc import datafile = 'Z:\Documents\MSA 2019\024 Visualization\outdir\G-2147_T-rain.csv'
  out = work.rain
  dbms = CSV
  ;
@@ -104,13 +104,13 @@ run;
 quit;
 
 /*This is the model I could got */
-ods output FitStatistics=Fit1;
-proc arima data=well_f plots(unpack)=all;
-identify var=well(1) crosscorr=(tide rain) nlag=100;
-estimate input=(6 $/(3) rain (5) tide) p=6 q=24 method=ML;
-forecast out=model1 back=168 lead = 168;
-run;
-quit;
+/*ods output FitStatistics=Fit1;*/
+/*proc arima data=well_f;*/
+/*identify var=well(1) crosscorr=(tide rain) nlag=100;*/
+/*estimate input=(6 $/(3) rain (5) tide) p=6 q=24 method=ML;*/
+/*forecast out=model1 back=168 lead = 168;*/
+/*run;*/
+/*quit;*/
 
 /* This is an alternate model */
 /*ods output FitStatistics=Fit1;*/
@@ -120,6 +120,16 @@ quit;
 /*forecast out=model1 back=168 lead = 168;*/
 /*run;*/
 /*quit;*/
+
+
+/* Try a number of different models */
+ods output FitStatistics=Fit1;
+proc arima data=well_train;
+identify var=well(1) crosscorr=(tide rain) nlag=100;
+estimate input=((5) tide (1,3,4,5,6,7,8,9) rain) p=6 q=24 method=ML;
+forecast out=model1 back=168 lead = 168;
+run;
+quit;
 
 
 data fitstats;
@@ -134,7 +144,7 @@ run;
 
 data test;
 merge model1 (rename=(residual=mod1));
-if _n_>9;
+if _n_>3000;
 run;
 
 data test;
@@ -151,13 +161,13 @@ data New1;
 set Well_f (keep=date_time);
 run;
 
-/*data New;*/
-/*merge New1 Model1;*/
-/*run;*/
-/**/
+data New;
+merge New1 Model1;
+run;
+
 /*proc sgplot data=New;*/
-/*  series X=date_time Y= well;*/
-/*  series X=date_time Y=FORECAST;*/
+/*  series X=Time Y= Well;*/
+/*  series X=Time Y=Forecast;*/
 /*  YAXIS LABEL = 'Well Depth(In)';*/
 /*  XAXIS LABEL = 'Time(Day)';*/
 /*  REFLINE 0 / TRANSPARENCY = 0.5;*/
@@ -165,8 +175,4 @@ run;
 /*run;*/
 
 
-%ds2csv (
-   data=New, 
-   runmode=b, 
-   csvfile='Z:\Documents\MSA 2019\024 Visualization\outdir\G2141-predict.csv'
- );
+
